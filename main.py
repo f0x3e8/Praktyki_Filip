@@ -57,11 +57,13 @@ def sum_to(n):
     return sum
 
 print("6_SUMA_N")
-print(sum_to(5))
+print(sum_to(1))
 print(sum_to(10))
 
 # 7 Silnia
 def factorial(n):
+    if n == 0:
+        return 1
     silnia = n
     for i in range(1, n):
         silnia *= i
@@ -76,6 +78,9 @@ def count_digits(n):
     i = 10
     count = 0
     liczba = n
+    if n == 0:
+        count = 1
+        return count
     while n > 0:
         n = liczba // i
         i = i * 10
@@ -106,6 +111,8 @@ print(reverse_number(987))
 #10 Pierwsza
 def is_prime(n):
     isprime = 1
+    if n == 1:
+        return False
     for i in range(2, n - 1):
         if n % i == 0:
             isprime = 0
@@ -134,7 +141,7 @@ print(sum_list([10, -2, 5]))
 
 #12 Max_listy
 def largest_in_list(numbers):
-    max = 0
+    max = numbers[0]
     for n in numbers:
         if n > max:
             max = n
@@ -252,6 +259,10 @@ def check_winner(board):
     if board[2][2] == "O" and board[1][1] == "O" and board[0][0] == "O":
         return "O"
     elif board[2][2] == "X" and board[1][1] == "X" and board[0][0] == "X":
+        return "X"
+    elif board[0][2] == "O" and board[1][1] == "O" and board[2][0] == "O":
+        return "O"
+    elif board[0][2] == "X" and board[1][1] == "X" and board[2][0] == "X":
         return "X"
     else:
         return "DRAW"
