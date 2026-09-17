@@ -68,7 +68,8 @@
     margin-bottom: 8px;
   }
 
-  input[type="text"] {
+  input[type="text"],
+  input[type="password"] {
     flex: 1;
     padding: 12px 14px;
     border: 1px solid var(--line);
@@ -79,7 +80,8 @@
     transition: border-color 0.15s;
   }
 
-  input[type="text"]:focus {
+  input[type="text"]:focus,
+  input[type="password"]:focus {
     outline: none;
     border-color: var(--accent);
   }
@@ -101,6 +103,64 @@
 
   form button:hover { opacity: 0.88; }
   form button:disabled { opacity: 0.45; cursor: default; }
+
+  #user {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  #logout {
+    padding: 0;
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+  }
+
+  #logout:hover { text-decoration: underline; }
+
+  #auth {
+    margin-bottom: 8px;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 4px;
+    background: var(--bg);
+    border-radius: 10px;
+  }
+
+  .tabs button {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    color: var(--muted);
+    font-weight: 500;
+    border-radius: 8px;
+  }
+
+  .tabs button[aria-selected="true"] {
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  }
+
+  #auth form {
+    flex-direction: column;
+    margin: 0;
+  }
+
+  #auth input {
+    width: 100%;
+  }
 
   #error {
     margin: 0 0 12px;
@@ -189,16 +249,40 @@
   <header>
     <h1>Todo</h1>
     <span id="counter"></span>
+    <span id="user" hidden>
+      <span id="user-login"></span>
+      <button type="button" id="logout">Log out</button>
+    </span>
   </header>
 
-  <form id="form">
-    <input type="text" id="title" placeholder="What needs to be done?" autocomplete="off" autofocus>
+  <section id="auth" hidden>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="login" aria-selected="true">Log in</button>
+      <button type="button" role="tab" data-tab="register" aria-selected="false">Register</button>
+    </div>
+
+    <form id="login-form" data-panel="login">
+      <input type="text" name="login" placeholder="Login" autocomplete="username" required>
+      <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Log in</button>
+    </form>
+
+    <form id="register-form" data-panel="register" hidden>
+      <input type="text" name="login" placeholder="Login" autocomplete="username" required>
+      <input type="password" name="password" placeholder="Password" autocomplete="new-password" required>
+      <input type="password" name="repeat" placeholder="Repeat password" autocomplete="new-password" required>
+      <button type="submit">Create account</button>
+    </form>
+  </section>
+
+  <form id="form" hidden>
+    <input type="text" id="title" placeholder="What needs to be done?" autocomplete="off">
     <button type="submit">Add</button>
   </form>
 
   <p id="error" hidden></p>
 
-  <ul id="list"></ul>
+  <ul id="list" hidden></ul>
   <p id="empty" hidden>Nothing here yet.</p>
 </main>
 
@@ -209,6 +293,12 @@
   const empty = document.getElementById("empty");
   const counter = document.getElementById("counter");
   const error = document.getElementById("error");
+  const auth = document.getElementById("auth");
+  const loginForm = document.getElementById("login-form");
+  const registerForm = document.getElementById("register-form");
+  const userBox = document.getElementById("user");
+  const userLogin = document.getElementById("user-login");
+  const logout = document.getElementById("logout");
 
   async function api(path, options) {
     const response = await fetch(path, {
@@ -272,6 +362,35 @@
     return item;
   }
 
+  function renderAuth(user) {
+    showError("");
+    loginForm.reset();
+    registerForm.reset();
+    auth.hidden = Boolean(user);
+    form.hidden = !user;
+    userBox.hidden = !user;
+    userLogin.textContent = user ? user.login : "";
+    if (user) {
+      titleInput.focus();
+      run(async () => {});
+    } else {
+      list.hidden = true;
+      empty.hidden = true;
+      counter.textContent = "";
+    }
+  }
+
+  function showTab(name) {
+    for (const tab of auth.querySelectorAll("[role=tab]")) {
+      tab.setAttribute("aria-selected", String(tab.dataset.tab === name));
+    }
+    for (const panel of auth.querySelectorAll("[data-panel]")) {
+      panel.hidden = panel.dataset.panel !== name;
+    }
+    showError("");
+    auth.querySelector(`[data-panel="${name}"] input`).focus();
+  }
+
   async function run(action) {
     try {
       await action();
@@ -282,6 +401,42 @@
     }
   }
 
+  async function submitAuth(action) {
+    try {
+      renderAuth(await action());
+    } catch (problem) {
+      showError(problem.message);
+    }
+  }
+
+  auth.addEventListener("click", (event) => {
+    const tab = event.target.closest("[role=tab]");
+    if (tab) showTab(tab.dataset.tab);
+  });
+
+  loginForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(loginForm));
+    submitAuth(() => api("/login", { method: "POST", body: JSON.stringify(data) }));
+  });
+
+  registerForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const { login, password, repeat } = Object.fromEntries(new FormData(registerForm));
+    if (password !== repeat) {
+      showError("Passwords do not match");
+      return;
+    }
+    submitAuth(() => api("/register", { method: "POST", body: JSON.stringify({ login, password }) }));
+  });
+
+  logout.addEventListener("click", () =>
+    submitAuth(async () => {
+      await api("/logout", { method: "POST" });
+      return null;
+    })
+  );
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const title = titleInput.value;
@@ -291,7 +446,7 @@
     });
   });
 
-  run(async () => {});
+  api("/me").then(renderAuth, () => renderAuth(null));
 </script>
 </body>
 </html>
